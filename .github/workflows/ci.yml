@@ -35,6 +35,7 @@ on:
   push:
     branches:
       - master
+      - main
       - develop
       - feature/**
   workflow_dispatch:
