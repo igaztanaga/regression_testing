@@ -165,6 +165,27 @@ jobs:
           set -euo pipefail
           cd "$REG_ROOT"
 
+          # Work around a bug in boostorg/regression's process_jam_log.py:
+          # gen_output() does `open(self.output, 'w')` with no encoding, so
+          # when a test's captured output contains non-ASCII characters --
+          # e.g. GCC's diagnostics use curly quotes (U+2018/U+2019) in
+          # "error: invalid conversion from '...' to '...'" -- Python 2's
+          # implicit unicode->str fallback encodes with sys.getdefaultencoding(),
+          # which is always 'ascii', and writexml() crashes with a
+          # UnicodeEncodeError during collect-logs. This is unrelated to
+          # whether the tests themselves passed; run.py re-downloads that
+          # script every run, so it can't be patched, and the standard fix is
+          # to force the interpreter's default encoding to utf-8 via
+          # sitecustomize.py, which Python's site module imports automatically
+          # for every process on PYTHONPATH.
+          cat > sitecustomize.py <<'PY'
+          import sys
+          if sys.getdefaultencoding() != 'utf-8':
+              reload(sys)
+              sys.setdefaultencoding('utf-8')
+          PY
+          export PYTHONPATH="$PWD${PYTHONPATH:+:$PYTHONPATH}"
+
           BJAM_OPTIONS="-j$(nproc) $EXTRA_BJAM_OPTIONS"
 
           ARGS=(
